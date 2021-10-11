@@ -4,15 +4,32 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/NetworkPy/muserv/muservice/account/models"
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct{}
+// Handler struct holds required services for handler to function
+type Handler struct {
+	UserService  models.UserService
+	TokenService models.TokenService
+}
+
+// Config will hold services that will eventually be injected into this
+// handler layer on handler initialization
+type Config struct {
+	Router       *gin.Engine
+	UserService  models.UserService
+	TokenService models.TokenService
+}
 
 // Create an account group
 // Create a handler (which will later have injected services)
 func NewHandler(c *Config) {
-	h := &Handler{}
+	h := &Handler{
+		UserService:  c.UserService,
+		TokenService: c.TokenService,
+	}
+
 	g := c.Router.Group(os.Getenv("ACCOUNT_API_URL")) // Init group
 	{
 		g.GET("/me", h.Me)
@@ -24,21 +41,6 @@ func NewHandler(c *Config) {
 		g.DELETE("/image", h.DeleteImage)
 		g.PUT("/details", h.Details)
 	}
-}
-
-// Me handler calls services for getting
-// a user's details
-func (h *Handler) Me(cnx *gin.Context) {
-	cnx.JSON(http.StatusOK, gin.H{
-		"hello": "it's me",
-	})
-}
-
-// Signup handler
-func (h *Handler) Signup(cnx *gin.Context) {
-	cnx.JSON(http.StatusOK, gin.H{
-		"hello": "it's signup",
-	})
 }
 
 // Signin handler

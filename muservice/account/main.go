@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NetworkPy/muservice/handler"
+	"github.com/NetworkPy/muserv/muservice/account/handler"
 	"github.com/gin-gonic/gin"
 )
 
