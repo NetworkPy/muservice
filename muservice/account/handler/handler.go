@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/NetworkPy/muserv/muservice/account/models"
 	"github.com/gin-gonic/gin"
@@ -20,17 +19,19 @@ type Config struct {
 	Router       *gin.Engine
 	UserService  models.UserService
 	TokenService models.TokenService
+	BaseURL      string
 }
 
 // Create an account group
 // Create a handler (which will later have injected services)
 func NewHandler(c *Config) {
+
 	h := &Handler{
 		UserService:  c.UserService,
 		TokenService: c.TokenService,
 	}
 
-	g := c.Router.Group(os.Getenv("ACCOUNT_API_URL")) // Init group
+	g := c.Router.Group(c.BaseURL) // Init group
 	{
 		g.GET("/me", h.Me)
 		g.POST("/signup", h.Signup)
