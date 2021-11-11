@@ -8,6 +8,7 @@ import (
 	"github.com/NetworkPy/muserv/muservice/account/models"
 	"github.com/NetworkPy/muserv/muservice/account/models/apperrors"
 	"github.com/NetworkPy/muserv/muservice/account/models/mocks"
+	"github.com/NetworkPy/muserv/muservice/account/security"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -120,5 +121,80 @@ func TestSignup(t *testing.T) {
 		assert.EqualError(t, err, mockErr.Error())
 
 		mockUserRepository.AssertExpectations(t)
+	})
+}
+
+func TestSignin(t *testing.T) {
+	email := "bob@bob.com"
+	validPW := "howdyhoneighbor!"
+	hashedValidPW, _ := security.HashPassword(validPW)
+	invalidPW := "howdyhodufus!"
+
+	mockUserRepository := new(mocks.MockUserRepository)
+	us := NewUserService(&USConfig{
+		UserRepository: mockUserRepository,
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		uid, _ := uuid.NewRandom()
+
+		mockUser := &models.User{
+			Email:    email,
+			Passowrd: validPW,
+		}
+
+		mockUserResp := &models.User{
+			UID:      uid,
+			Email:    email,
+			Passowrd: hashedValidPW,
+		}
+
+		mockArgs := mock.Arguments{
+			mock.AnythingOfType("*context.emptyCtx"),
+			email,
+		}
+
+		// We can use Run method to modify the user when the Create method is called.
+		//  We can then chain on a Return method to return no error
+		mockUserRepository.
+			On("FindByEmail", mockArgs...).Return(mockUserResp, nil)
+
+		ctx := context.TODO()
+		err := us.Signin(ctx, mockUser)
+
+		assert.NoError(t, err)
+		mockUserRepository.AssertCalled(t, "FindByEmail", mockArgs...)
+	})
+
+	t.Run("Invalid email/password combination", func(t *testing.T) {
+		uid, _ := uuid.NewRandom()
+
+		mockUser := &models.User{
+			Email:    email,
+			Passowrd: invalidPW,
+		}
+
+		mockUserResp := &models.User{
+			UID:      uid,
+			Email:    email,
+			Passowrd: hashedValidPW,
+		}
+
+		mockArgs := mock.Arguments{
+			mock.AnythingOfType("*context.emptyCtx"),
+			email,
+		}
+
+		// We can use Run method to modify the user when the Create method is called.
+		//  We can then chain on a Return method to return no error
+		mockUserRepository.
+			On("FindByEmail", mockArgs...).Return(mockUserResp, nil)
+
+		ctx := context.TODO()
+		err := us.Signin(ctx, mockUser)
+
+		assert.Error(t, err)
+		assert.EqualError(t, err, "Invalid email and password combination")
+		mockUserRepository.AssertCalled(t, "FindByEmail", mockArgs...)
 	})
 }

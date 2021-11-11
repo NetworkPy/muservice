@@ -31,7 +31,7 @@ func (h *Handler) Signup(c *gin.Context) {
 		Email:    req.Email,
 		Passowrd: req.Password,
 	}
-
+	log.Println("USER", u.UID)
 	ctx := c.Request.Context()
 	err := h.UserService.Signup(ctx, u)
 
@@ -42,7 +42,7 @@ func (h *Handler) Signup(c *gin.Context) {
 		})
 		return
 	}
-
+	log.Println("USER", u.UID)
 	// create token pair as strings
 	tokens, err := h.TokenService.NewPairFromUser(ctx, u, "")
 

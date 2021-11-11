@@ -2,8 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/NetworkPy/muserv/muservice/account/handler/middleware"
 	"github.com/NetworkPy/muserv/muservice/account/models"
+	"github.com/NetworkPy/muserv/muservice/account/models/apperrors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,10 +19,11 @@ type Handler struct {
 // Config will hold services that will eventually be injected into this
 // handler layer on handler initialization
 type Config struct {
-	Router       *gin.Engine
-	UserService  models.UserService
-	TokenService models.TokenService
-	BaseURL      string
+	Router          *gin.Engine
+	UserService     models.UserService
+	TokenService    models.TokenService
+	BaseURL         string
+	TimeoutDuration time.Duration
 }
 
 // Create an account group
@@ -32,8 +36,16 @@ func NewHandler(c *Config) {
 	}
 
 	g := c.Router.Group(c.BaseURL) // Init group
-	{
+
+	// Wish I had thought this through better!
+	if gin.Mode() != gin.TestMode {
+		g.Use(middleware.Timeout(c.TimeoutDuration, apperrors.NewServiceUnavailable()))
+		g.GET("/me", middleware.AuthUser(h.TokenService), h.Me)
+	} else {
 		g.GET("/me", h.Me)
+	}
+
+	{
 		g.POST("/signup", h.Signup)
 		g.POST("/signin", h.Signin)
 		g.POST("/signout", h.Signout)
@@ -42,13 +54,6 @@ func NewHandler(c *Config) {
 		g.DELETE("/image", h.DeleteImage)
 		g.PUT("/details", h.Details)
 	}
-}
-
-// Signin handler
-func (h *Handler) Signin(cnx *gin.Context) {
-	cnx.JSON(http.StatusOK, gin.H{
-		"hello": "it's signin",
-	})
 }
 
 // Signout handler

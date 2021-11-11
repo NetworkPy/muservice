@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/NetworkPy/muserv/muservice/account/handler"
 	"github.com/NetworkPy/muserv/muservice/account/repository"
@@ -25,7 +26,7 @@ func inject(d *dataSources) (*gin.Engine, error) {
 	 * repository layer
 	 */
 	userRepository := repository.NewUserRepository(d.DB)
-
+	tokenRepository := repository.NewTokenRepository(d.RedisClient)
 	/*
 	 * repository layer
 	 */
@@ -77,6 +78,7 @@ func inject(d *dataSources) (*gin.Engine, error) {
 	}
 
 	tokenService := service.NewTokenService(&service.TSConfig{
+		TokenRepository:       tokenRepository,
 		PrivKey:               privKey,
 		PubKey:                pubKey,
 		RefreshSecret:         refreshSecret,
@@ -88,12 +90,18 @@ func inject(d *dataSources) (*gin.Engine, error) {
 	router := gin.Default()
 
 	baseURL := os.Getenv("ACCOUNT_API_URL")
+	handlerTimeout := os.Getenv("HANDLER_TIMEOUT")
+	ht, err := strconv.ParseInt(handlerTimeout, 0, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse HANDLER_TIMEOUT as int: %w", err)
+	}
 
 	handler.NewHandler(&handler.Config{
-		Router:       router,
-		UserService:  userService,
-		TokenService: tokenService,
-		BaseURL:      baseURL,
+		Router:          router,
+		UserService:     userService,
+		TokenService:    tokenService,
+		BaseURL:         baseURL,
+		TimeoutDuration: time.Duration(time.Duration(ht) * time.Second),
 	})
 
 	return router, nil

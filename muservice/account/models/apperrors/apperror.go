@@ -18,6 +18,7 @@ const (
 	NotFound             Type = "NOTFOUND"             // For not finding resource
 	PayloadTooLarge      Type = "PAYLOADTOOLARGE"      // for uploading tons of JSON, or an image over the limit - 413
 	UnsupportedMediaType Type = "UNSUPPORTEDMEDIATYPE" // for http 415
+	ServiceUnavailable   Type = "SERVICE_UNAVAILABLE"  // For long running handlers
 )
 
 // Error holds a custom error for the application
@@ -40,6 +41,8 @@ func (e *Error) Error() string {
 // our errors already map http status codes
 func (e *Error) Status() int {
 	switch e.Type {
+	case ServiceUnavailable:
+		return http.StatusServiceUnavailable
 	case Authorization:
 		return http.StatusUnauthorized
 	case BadRequest:
@@ -127,5 +130,14 @@ func NewPayloadTooLarge(maxBodySize int64, contentLength int64) *Error {
 	return &Error{
 		Type:    PayloadTooLarge,
 		Message: fmt.Sprintf("Max payload size of %v exceeded. Actual payload size: %v", maxBodySize, contentLength),
+	}
+}
+
+// add an error factory
+// NewServiceUnavailable to create an error for 503
+func NewServiceUnavailable() *Error {
+	return &Error{
+		Type:    ServiceUnavailable,
+		Message: fmt.Sprintln("Service unavailable or timed out"),
 	}
 }

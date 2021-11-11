@@ -2,6 +2,7 @@ package security
 
 import (
 	"crypto/rsa"
+	"fmt"
 	"log"
 	"time"
 
@@ -18,9 +19,9 @@ type IDTokenCustomClaims struct {
 
 // RefreshToken holds the actual signed jwt string along with the ID
 // We return the id so it can be used without re-parsing the JWT from signed string
-type RefreshToken struct {
+type RefreshTokenData struct {
 	SS        string
-	ID        string
+	ID        uuid.UUID
 	ExpiresIn time.Duration
 }
 
@@ -32,7 +33,7 @@ type RefreshTokenCustomClaims struct {
 	jwt.StandardClaims
 }
 
-// generateIDToken generates an IDToken which is a jwt with myCustomClaims
+// GenerateIDToken generates an IDToken which is a jwt with myCustomClaims
 // Could call this GenerateIDTokenString, but the signature makes this fairly clear
 func GenerateIDToken(u *models.User, key *rsa.PrivateKey, exp int64) (string, error) {
 	unixTime := time.Now().Unix()
@@ -57,9 +58,9 @@ func GenerateIDToken(u *models.User, key *rsa.PrivateKey, exp int64) (string, er
 	return ss, nil
 }
 
-// generateRefreshToken creates a refresh token
+// GenerateRefreshToken creates a refresh token
 // The refresh token stores only the user's ID, a string
-func GenerateRefreshToken(uid uuid.UUID, key string, exp int64) (*RefreshToken, error) {
+func GenerateRefreshToken(uid uuid.UUID, key string, exp int64) (*RefreshTokenData, error) {
 	currentTime := time.Now()
 	tokenExp := currentTime.Add(time.Duration(exp) * time.Second)
 	tokenID, err := uuid.NewRandom() // v4 uuid in the google uuid lib
@@ -86,9 +87,54 @@ func GenerateRefreshToken(uid uuid.UUID, key string, exp int64) (*RefreshToken, 
 		return nil, err
 	}
 
-	return &RefreshToken{
+	return &RefreshTokenData{
 		SS:        ss,
-		ID:        tokenID.String(),
+		ID:        tokenID,
 		ExpiresIn: tokenExp.Sub(currentTime),
 	}, nil
+}
+
+// ValidateIDToken returns the token's claims if the token is valid
+func ValidateIDToken(tokenString string, key *rsa.PublicKey) (*IDTokenCustomClaims, error) {
+	claims := &IDTokenCustomClaims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return key, nil
+	})
+
+	// For now we'll just return the error and handle logging in service level
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, fmt.Errorf("ID token is invalid")
+	}
+
+	claims, ok := token.Claims.(*IDTokenCustomClaims)
+
+	if !ok {
+		return nil, fmt.Errorf("ID token valid but couldn't parse claims")
+	}
+
+	return claims, nil
+}
+
+// ValidateRefresh returns the token's claims if the token is valid
+func ValidateRefreshToken(tokenString string, key string) (*RefreshTokenCustomClaims, error) {
+	claims := &RefreshTokenCustomClaims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(key), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, fmt.Errorf("refresh token is invalid")
+	}
+
+	return claims, nil
 }
